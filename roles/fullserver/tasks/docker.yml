@@ -40,5 +40,5 @@
     append: yes
   loop:
     - jenkins
-    - "{{ ansible_user }}"
+    - "{{ lookup('env', 'USER') }}"
 

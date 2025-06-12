@@ -14,9 +14,13 @@
     update_cache: yes
     state: present
 
+- name: Gather installed package facts
+  ansible.builtin.package_facts:
+    manager: auto
+
 - name: Start and enable Jenkins (only if installed)
-  systemd:
+  ansible.builtin.systemd:
     name: jenkins
-    enabled: true
+    enabled: yes
     state: started
   when: "'jenkins' in ansible_facts.packages"

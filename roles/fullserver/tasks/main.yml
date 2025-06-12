@@ -3,4 +3,4 @@
 - import_tasks: jenkins.yml
 - import_tasks: appdir.yml
 - import_tasks: docker_stack_deploy.yml
-
+- import_tasks: script_runner.yml

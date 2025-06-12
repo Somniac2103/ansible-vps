@@ -1,0 +1,29 @@
+- name: Ensure script folder exists
+  file:
+    path: /opt/scripts
+    state: directory
+    mode: '0755'
+
+- name: Copy universal GitHub script runner
+  copy:
+    src: run-latest.sh
+    dest: /opt/scripts/run-latest.sh
+    mode: '0755'
+
+- name: Create wrapper for backup script
+  copy:
+    content: |
+      #!/bin/bash
+      export SCRIPT_NAME=backup.sh
+      /opt/scripts/run-latest.sh
+    dest: /etc/cron.daily/launch-backup
+    mode: '0755'
+
+- name: Create wrapper for security updates (optional)
+  copy:
+    content: |
+      #!/bin/bash
+      export SCRIPT_NAME=security-updates.sh
+      /opt/scripts/run-latest.sh
+    dest: /etc/cron.weekly/launch-updates
+    mode: '0755'

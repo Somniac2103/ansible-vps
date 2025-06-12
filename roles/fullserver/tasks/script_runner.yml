@@ -10,7 +10,7 @@
     dest: /opt/scripts/run-latest.sh
     mode: '0755'
 
-- name: Create wrapper for backup script
+- name: Create daily GitHub backup runner
   copy:
     content: |
       #!/bin/bash
@@ -19,7 +19,7 @@
     dest: /etc/cron.daily/launch-backup
     mode: '0755'
 
-- name: Create wrapper for security updates (optional)
+- name: Create weekly GitHub update runner
   copy:
     content: |
       #!/bin/bash

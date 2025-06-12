@@ -14,8 +14,9 @@
     update_cache: yes
     state: present
 
-- name: Start and enable Jenkins
+- name: Start and enable Jenkins (only if installed)
   systemd:
     name: jenkins
     enabled: true
     state: started
+  when: "'jenkins' in ansible_facts.packages"

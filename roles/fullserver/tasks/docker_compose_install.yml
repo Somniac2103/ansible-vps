@@ -1,0 +1,13 @@
+- name: Install Docker Compose binary
+  get_url:
+    url: https://github.com/docker/compose/releases/download/v2.24.2/docker-compose-linux-x86_64
+    dest: /usr/local/bin/docker-compose
+    mode: '0755'
+    force: yes
+
+- name: Create symbolic link for docker-compose (if needed)
+  file:
+    src: /usr/local/bin/docker-compose
+    dest: /usr/bin/docker-compose
+    state: link
+    force: yes

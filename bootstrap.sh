@@ -1,39 +1,43 @@
 #!/bin/bash
 
-# === CONFIGURABLE ===
-SERVER="$1"
-ANSIBLE_REPO="https://github.com/Somniac2103/ansible-vps.git"
-TARGET_DIR="/opt/ansible-vps"
-SSH_USER="root"
+set -e
 
-if [[ -z "$SERVER" ]]; then
-  echo "Usage: $0 <user@ip>"
+TARGET="$1"
+
+if [ -z "$TARGET" ]; then
+  echo "❌ Usage: $0 user@hostname"
   exit 1
 fi
 
-echo "🔧 Bootstrapping server: $SERVER"
+echo "🔧 Bootstrapping server: $TARGET"
 
-ssh "$SERVER" bash -s <<EOF
-  echo "🛠 Updating system..."
-  apt update && apt upgrade -y
+ssh "$TARGET" bash -s <<'EOF'
+  set -e
 
-  echo "📦 Installing core packages..."
-  apt install -y git curl gnupg python3-pip python3-venv software-properties-common
+  echo "📦 Updating system and installing base packages..."
 
-  echo "🐍 Installing Ansible via pip..."
-  pip3 install ansible
+  apt-get update -y
+  DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    python3 \
+    python3-pip \
+    software-properties-common \
+    unzip \
+    curl \
+    git \
+    sudo \
+    sshpass
 
-  echo "📁 Preparing project directory..."
-  mkdir -p $TARGET_DIR
-  cd /opt
+  echo "✅ Base packages installed."
 
-  echo "📥 Cloning Ansible repository..."
-  git clone $ANSIBLE_REPO $TARGET_DIR
+  # Optional: create ansible user if you're not using root (skip if using root)
+  # useradd -m -s /bin/bash ansible
+  # echo "ansible ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ansible
 
-  echo "📦 Installing Ansible Galaxy roles..."
-  cd $TARGET_DIR
-  ansible-galaxy install -r requirements.yml
-
-  echo "🚀 Running Ansible playbook..."
-  ansible-playbook site.yml
+  echo "📁 Creating directory for Ansible..."
+  mkdir -p /opt/ansible
 EOF
+
+echo "📂 Copying Ansible project files to server..."
+rsync -av --exclude='.git' --exclude='*.pyc' ./ "$TARGET":/opt/ansible
+
+echo "🚀 Bootstrap complete. You may now run Ansible playbooks from your local machine targeting $TARGET"

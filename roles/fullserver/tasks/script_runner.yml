@@ -6,7 +6,7 @@
 
 - name: Copy universal GitHub script runner
   copy:
-    src: run-latest.sh
+    src: server/run-latest.sh
     dest: /opt/scripts/run-latest.sh
     mode: '0755'
 

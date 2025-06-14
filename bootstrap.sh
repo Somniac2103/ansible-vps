@@ -11,11 +11,28 @@ fi
 
 echo "🔧 Bootstrapping server: $TARGET"
 
+### 🔐 SSH Key Setup ###
+echo "🔐 Checking for SSH key..."
+if [ ! -f ~/.ssh/id_ed25519 ]; then
+  echo "🗝️  Generating new SSH key..."
+  ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""
+fi
+
+echo "📤 Pushing public key to server..."
+ssh-copy-id -i ~/.ssh/id_ed25519.pub "$TARGET"
+
+### 🔒 Initial SSH Hardening ###
+echo "🚫 Disabling root password login..."
+ssh "$TARGET" << 'EOSSH'
+  sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+  systemctl restart sshd
+EOSSH
+
+### 🧰 System Setup ###
 ssh "$TARGET" bash -s <<'EOF'
   set -e
 
   echo "📦 Updating system and installing base packages..."
-
   apt-get update -y
   DEBIAN_FRONTEND=noninteractive apt-get install -y \
     python3 \
@@ -29,16 +46,11 @@ ssh "$TARGET" bash -s <<'EOF'
 
   echo "✅ Base packages installed."
 
-  # Optional: create ansible user if you're not using root (skip if using root)
-  # useradd -m -s /bin/bash ansible
-  # echo "ansible ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/ansible
-
   echo "📁 Creating directory for Ansible..."
   mkdir -p /opt/ansible
 EOF
 
 echo "📂 Copying Ansible project files to server..."
 rsync -av --exclude='.git' --exclude='*.pyc' ./ "$TARGET:/opt/ansible"
-
 
 echo "🚀 Bootstrap complete. You may now run Ansible playbooks from your local machine targeting $TARGET"

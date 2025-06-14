@@ -38,6 +38,7 @@ ssh "$TARGET" bash -s <<'EOF'
 EOF
 
 echo "📂 Copying Ansible project files to server..."
-rsync -av --exclude='.git' --exclude='*.pyc' ./ "$TARGET":/opt/ansible
+rsync -av --exclude='.git' --exclude='*.pyc' ./ "$TARGET:/opt/ansible"
+
 
 echo "🚀 Bootstrap complete. You may now run Ansible playbooks from your local machine targeting $TARGET"

@@ -2,5 +2,6 @@ all:
   hosts:
     srv793403:
       ansible_host: 82.29.190.13
-      ansible_user: somniac
+      ansible_user: __USERNAME__
       ansible_python_interpreter: /usr/bin/python3
+

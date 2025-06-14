@@ -93,7 +93,7 @@ mkdir -p /opt/ansible
 chown -R $USERNAME:$USERNAME /opt/ansible
 
 echo "🔁 Restarting SSH..."
-systemctl restart sshd
+systemctl restart ssh
 EOF
 
 # ----------------------------

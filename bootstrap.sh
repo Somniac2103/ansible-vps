@@ -22,11 +22,19 @@ echo "📤 Pushing public key to server..."
 ssh-copy-id -i ~/.ssh/id_ed25519.pub "$TARGET"
 
 ### 🔒 Initial SSH Hardening ###
-echo "🚫 Disabling root password login..."
+echo "🚫 Disabling root password login and locking root password..."
 ssh "$TARGET" << 'EOSSH'
+  # Disable SSH password login for root
   sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
-  systemctl restart sshd
+  
+  # Lock root password entirely
+  passwd -l root
+
+  # Restart SSH service
+  echo "🔁 Restarting SSH service..."
+  systemctl restart ssh || systemctl restart sshd
 EOSSH
+
 
 ### 🧰 System Setup ###
 ssh "$TARGET" bash -s <<'EOF'

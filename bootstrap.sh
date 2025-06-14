@@ -41,6 +41,11 @@ EOSSH
 ssh "$TARGET" bash -s << 'EOSSH'
 set -e
 
+echo "⏳ Waiting for unattended-upgrades to finish..."
+while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
+  sleep 3
+done
+
 echo "📦 Installing base packages..."
 apt-get update -y
 DEBIAN_FRONTEND=noninteractive apt-get install -y \

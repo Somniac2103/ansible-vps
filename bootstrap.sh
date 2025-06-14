@@ -61,4 +61,29 @@ EOF
 echo "📂 Copying Ansible project files to server..."
 rsync -av --exclude='.git' --exclude='*.pyc' ./ "$TARGET:/opt/ansible"
 
+echo "👤 Creating secure 'somniac' user with SSH access only..."
+ssh "$TARGET" bash -s <<'EOSSH'
+  # Create user if it doesn't exist
+  if ! id somniac &>/dev/null; then
+    useradd -m -s /bin/bash somniac
+  fi
+
+  # Copy root's authorized_keys for somniac
+  mkdir -p /home/somniac/.ssh
+  cp /root/.ssh/authorized_keys /home/somniac/.ssh/authorized_keys
+  chown -R somniac:somniac /home/somniac/.ssh
+  chmod 700 /home/somniac/.ssh
+  chmod 600 /home/somniac/.ssh/authorized_keys
+
+  # Give somniac passwordless sudo
+  echo "somniac ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/somniac
+
+  # Enforce key-based login only
+  sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
+  sed -i 's/^#\?PubkeyAuthentication.*/PubkeyAuthentication yes/' /etc/ssh/sshd_config
+
+  systemctl restart ssh || systemctl restart sshd
+EOSSH
+
+
 echo "🚀 Bootstrap complete. You may now run Ansible playbooks from your local machine targeting $TARGET"

@@ -1,48 +1,49 @@
-# 🛡️ Secure VPS Bootstrap Script
+ 🛡️ Secure VPS Bootstrap Script
 
 This Bash script automates the secure setup of a remote Ubuntu-based server via SSH. It creates a new sudo user, configures SSH access, installs essential DevOps tools (like Ansible), locks down root access, and deploys your Ansible project — all with hardened, auditable steps and logs.
 
 ---
 
-## 🚀 What It Does
+🚀 What It Does
 
-1. Prompts you to create a new **non-root admin user**
-2. **Generates a unique SSH keypair** for secure access
-3. **Pushes public key to server** and configures access
-4. Optionally **locks down root SSH access and disables password login**
-5. Removes old tools (like Ansible, Python, Git) and **installs fresh**
-6. **Clones your Ansible repo** and deploys it to the server
+1. Prompts you to create a new non-root admin user
+2. Generates a unique SSH keypair for secure access
+3. Pushes the public key to the server and configures access
+4. Optionally locks down root SSH access and disables password login
+5. Removes old packages and installs fresh DevOps tools
+6. Clones your Ansible repo and deploys it to the server
 7. Saves:
-   - A secure **credential file** with access info and private key
-   - A **timestamped log file** of the entire setup
+   - A secure credential file (access info + private key)
+   - A timestamped log file of the entire setup
 
 ---
 
-## 🛠️ Requirements
+🛠️ Requirements
 
 - Local machine:
   - Linux / macOS
   - `ssh`, `ssh-keygen`, `ssh-copy-id`, `git`, `bash`
+
 - Remote server:
-  - Ubuntu with root SSH access
+  - Ubuntu (root SSH access required)
 
 ---
 
-## 🧪 Optional Verification Mode
+ 🧪 Optional: Verification Mode
 
-Run this to **audit** a server (no changes made):
+To audit an existing server (without making changes):
 
-```bash
+bash
 ./bootstrap.sh --verify
-This checks:
+This will check:
 
-Root SSH login locked
+🔒 Root SSH login is locked
 
-Password authentication disabled
+🚫 Password authentication is disabled
 
-Key dev tools installed
+🧰 Required tools (python3, pip3, git, curl, ansible) are installed
 
-SSH configuration syntax is valid
+🔧 SSH configuration syntax is valid
 
 🔐 Example Usage
 bash
@@ -56,29 +57,28 @@ Enter a new username
 
 Set and confirm the password
 
-The script takes care of everything else
+The script handles everything else.
 
 📁 Output Files
-server-access-<user>@<ip>-<timestamp>.txt:
-Contains connection info and the private key. Move this to a secure location!
+server-access-<user>@<ip>-<timestamp>.txt
+➤ Contains connection info and the private key.
+⚠️ Move this file to a secure, encrypted location immediately after setup.
 
-bootstrap-log-<timestamp>.log:
-Full log of everything the script did — for debugging or audit purposes.
+bootstrap-log-<timestamp>.log
+➤ Full log of everything the script did — for auditing and debugging.
 
 🔒 Security Highlights
 SSH access via ed25519 keypair
 
-No password login after setup (optional)
-
-Automatically disables root login once safe
+Optional root login and password login disabling
 
 Validates SSH config before restarting
 
-Backs up any existing keys before overwriting
+Automatically backs up all existing keys before replacing
 
-Uses set -euo pipefail for hardened scripting
+Uses set -euo pipefail for script hardening
 
-Logs everything for transparency
+Logs every action to a persistent logfile
 
 📦 What Gets Installed
 python3, pip3
@@ -88,37 +88,29 @@ git, curl, unzip
 ansible (from official PPA)
 
 🧹 Local Cleanup
-After finishing, it deletes any temp directories (ansible-tmp) and leaves only the log and credentials.
+After setup:
+
+Temporary directory ansible-tmp is removed
+
+Only the log and credential files remain
 
 📌 Notes
-The script will overwrite the SSH key for the new user and root.
+The script may overwrite .ssh/authorized_keys for both the new user and root
 
-Be cautious — anyone with the output .txt file can access your server.
+Do NOT commit the generated .txt credential file to Git!
 
-Do not commit that file to version control or leave it unsecured.
+Anyone with access to that file can access your server
 
 🧠 Troubleshooting
-If ssh-copy-id fails, ensure root SSH access is enabled and firewall allows port 22.
+ssh-copy-id fails:
+➤ Ensure root SSH login is enabled and port 22 is open
 
-If log shows SSH restart failure, run sudo sshd -t on the server to check config.
+SSH restart fails:
+➤ Run sudo sshd -t on the server to check for config errors
 
-Run with --verify to inspect without making changes.
+Want to audit only:
+➤ Run with --verify to test without making changes
 
 📬 Contact
 Maintained by Somniac2103
-Feel free to open an issue or PR if you'd like to suggest improvements!
-
-yaml
-Copy
-Edit
-
----
-
-Let me know if you'd like:
-
-- Emojis removed (for more professional tone)
-- A badge set for GitHub Actions
-- A version with shell snippets as collapsible blocks
-- A multilingual version (EN/DE/etc.)
-
-Want me to save this to your repo as `README.md`?
+Feel free to open an issue or submit a pull request with improvements or fixes.

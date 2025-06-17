@@ -344,58 +344,17 @@ rm -rf ansible-tmp/.git
 # Step 7: Copy project to server
 # ----------------------------
 
-
 echo "📂 Copying project to server..."
-
-echo "🐞 DEBUGGING SCP ERROR..."
-
-# Print all critical variables
-echo "📍 Variables before SCP:"
-echo " - SCP Source Dir: ansible-tmp/"
-echo " - SCP Target: $USERNAME@$SERVER_IP:/opt/ansible/"
-echo " - SCP Command: scp -r ansible-tmp/* \"$USERNAME@$SERVER_IP:/opt/ansible/\""
-
-# List contents with sizes
-echo "📦 Listing ansible-tmp/*:"
-ls -lh ansible-tmp/ || echo "⚠️ Could not list local files"
-
-# Check total size (in case it's huge)
-echo "🧮 Total size of transfer:"
-du -sh ansible-tmp/
-
-# Test remote SSH output in non-interactive mode
-echo "🧪 Checking for unwanted remote shell output..."
-SSH_OUTPUT=$(ssh -T "$USERNAME@$SERVER_IP" 'true' 2>&1 || true)
-
-
-if [[ -n "$SSH_OUTPUT" ]]; then
-  echo "❌ Unexpected output on remote non-interactive shell:"
-  echo "-----------------------------"
-  echo "$SSH_OUTPUT"
-  echo "-----------------------------"
-  echo "💡 You may have echo/printf/banner commands in ~/.bashrc or ~/.profile on the server."
-  echo "🛠️ Suggest adding this to the top of ~/.bashrc: [[ \$- != *i* ]] && return"
+if ! scp -r -o LogLevel=QUIET \
+          -o UserKnownHostsFile=/dev/null \
+          -o StrictHostKeyChecking=no \
+          -o PreferredAuthentications=publickey \
+          -o PubkeyAuthentication=yes \
+          -o SendEnv=NONE \
+          ansible-tmp/ "$USERNAME@$SERVER_IP:/opt/ansible/"; then
+  echo "❌ SCP failed — check file permissions or SSH key setup"
   exit 1
-else
-  echo "✅ Remote shell is clean — proceeding with SCP..."
 fi
-
-echo "🔄 Attempting SCP transfer with full debug..."
-
-# Manually run verbose SCP to catch any odd output or failure
-scp -v -r ansible-tmp/ "$USERNAME@$SERVER_IP:/opt/ansible/" 2>&1 | tee scp_debug.log
-
-# Check exit status of SCP
-if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
-  echo "❌ SCP transfer failed. Debug output (last 20 lines):"
-  tail -n 20 scp_debug.log
-  echo "❗ This is often caused by unexpected shell output on the remote host — check ~/.bashrc, ~/.profile, or login scripts for echo/print statements."
-  exit 1
-else
-  echo "✅ SCP completed successfully."
-fi
-
-scp -r -o LogLevel=QUIET -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey -o PubkeyAuthentication=yes -o SendEnv=NONE ansible-tmp/ "$USERNAME@$SERVER_IP:/opt/ansible/"
 
 
 # ----------------------------

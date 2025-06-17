@@ -356,7 +356,6 @@ if ! scp -r -o LogLevel=QUIET \
   exit 1
 fi
 
-
 # ----------------------------
 # Step 8: Patch inventory file
 # ----------------------------

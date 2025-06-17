@@ -2,7 +2,7 @@
 GITHUB_REPO="https://raw.githubusercontent.com/Somniac2103/ansible-vps/main/roles/fullserver/files"
 
 SCRIPT_NAME="${SCRIPT_NAME:-backup.sh}"
-SCRIPT_PATH="/opt/scripts/${SCRIPT_NAME}"
+SCRIPT_PATH="/opt/myapp/scripts/${SCRIPT_NAME}"
 
 curl -fsSL "$GITHUB_REPO/$SCRIPT_NAME" -o "$SCRIPT_PATH"
 chmod +x "$SCRIPT_PATH"

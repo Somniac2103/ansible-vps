@@ -3,10 +3,13 @@
     path: /opt/myapp
     state: directory
     mode: '0755'
+    owner: jenkins
+    group: jenkins
+
 
 - name: Copy docker-compose file to server
   copy:
-    src: docker-compose.yml
+    src: apps/docker-compose.yml
     dest: /opt/myapp/docker-compose.yml
     mode: '0644'
 

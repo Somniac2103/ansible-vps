@@ -7,16 +7,20 @@
       - gnupg
       - lsb-release
     update_cache: yes
-
-- name: Add Docker GPG key
-  apt_key:
-    url: https://download.docker.com/linux/ubuntu/gpg
     state: present
+
+- name: Download Docker GPG key
+  get_url:
+    url: https://download.docker.com/linux/ubuntu/gpg
+    dest: /etc/apt/trusted.gpg.d/docker.gpg
+    mode: '0644'
+
 
 - name: Add Docker repo
   apt_repository:
     repo: deb [arch=amd64] https://download.docker.com/linux/ubuntu focal stable
     state: present
+    update_cache: yes
 
 - name: Install Docker CE
   apt:

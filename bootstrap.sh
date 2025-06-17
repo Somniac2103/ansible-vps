@@ -351,7 +351,7 @@ if ! scp -r -o LogLevel=QUIET \
           -o PreferredAuthentications=publickey \
           -o PubkeyAuthentication=yes \
           -o SendEnv=NONE \
-          ansible-tmp/ "$USERNAME@$SERVER_IP:/opt/ansible/"; then
+          ansible-tmp "$USERNAME@$SERVER_IP:/opt/ansible/"; then
   echo "❌ SCP failed — check file permissions or SSH key setup"
   exit 1
 fi
@@ -360,7 +360,8 @@ fi
 # Step 8: Patch inventory file
 # ----------------------------
 echo "🛠️ Updating inventory username..."
-ssh "$USERNAME@$SERVER_IP" "sed -i 's/__USERNAME__/$USERNAME/' /opt/ansible/inventory.yml"
+ssh "$USERNAME@$SERVER_IP" "sed -i 's/__USERNAME__/$USERNAME/' /opt/ansible/ansible-tmp/inventory.yml"
+
 
 # ----------------------------
 # Step 9: Local cleanup

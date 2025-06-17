@@ -1,0 +1,6 @@
+- name: Full server setup
+  hosts: localhost
+  become: true
+
+  roles:
+    - fullserver

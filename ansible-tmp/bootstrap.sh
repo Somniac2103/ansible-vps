@@ -111,21 +111,6 @@ echo "🔧 Bootstrapping server: $SERVER_IP with user '$USERNAME'"
 echo "🧹 Removing old SSH fingerprint for $SERVER_IP"
 ssh-keygen -R "$SERVER_IP" >/dev/null 2>&1 || true
 
-# Clean specific fingerprint if exists
-echo "🧹 Removing old SSH fingerprint for $SERVER_IP"
-ssh-keygen -R "$SERVER_IP" >/dev/null 2>&1 || true
-
-# Ensure ~/.ssh and known_hosts are ready
-mkdir -p "$HOME/.ssh"
-touch "$HOME/.ssh/known_hosts"
-chmod 700 "$HOME/.ssh"
-chmod 644 "$HOME/.ssh/known_hosts"
-
-# Add fresh fingerprint
-echo "📡 Scanning SSH fingerprint for trust..."
-ssh-keyscan -H "$SERVER_IP" >> "$HOME/.ssh/known_hosts" 2>/dev/null
-
-
 # Add fresh fingerprint
 echo "📡 Scanning SSH fingerprint for trust..."
 ssh-keyscan -H "$SERVER_IP" >> "$HOME/.ssh/known_hosts" 2>/dev/null
@@ -136,8 +121,7 @@ ssh-keyscan -H "$SERVER_IP" >> "$HOME/.ssh/known_hosts" 2>/dev/null
 # ----------------------------
 # Generate a unique key filename to avoid collisions
 while :; do
-  RAND_SUFFIX="$(tr -dc 'a-z0-9' < /dev/urandom | head -c 8 || true)"
-  KEY_ID="id_ed25519_$RAND_SUFFIX"
+  KEY_ID="id_ed25519_$(tr -dc a-z0-9 </dev/urandom | head -c 8)"
   KEY="$HOME/.ssh/$KEY_ID"
   [[ ! -f "$KEY" && ! -f "$KEY.pub" ]] && break
 done
@@ -177,33 +161,12 @@ USER_PASSWORD="$2"
 # --- Create user if it doesn't exist ---
 if ! id "$USERNAME" &>/dev/null; then
   echo "➕ Creating user: $USERNAME"
-  useradd -m -s /bin/bash -G sudo "$USERNAME"
+  adduser --gecos "" "$USERNAME" --quiet --disabled-login
   echo "$USERNAME:$USER_PASSWORD" | chpasswd
+  usermod -aG sudo "$USERNAME"
 else
   echo "⚠️  User $USERNAME already exists."
 fi
-passwd -S "$USERNAME"
-
-echo "🔕 Cleaning shell init files to prevent SCP issues..."
-
-# Disable output in non-interactive shells
-BASHRC="/home/$USERNAME/.bashrc"
-PROFILE="/home/$USERNAME/.profile"
-
-touch "$BASHRC" "$PROFILE"
-chown $USERNAME:$USERNAME "$BASHRC" "$PROFILE"
-
-# Ensure NO echo, figlet, banner, printf, etc. run
-sed -i '/^\s*echo/d' "$BASHRC"
-sed -i '/^\s*printf/d' "$BASHRC"
-sed -i '/^\s*figlet/d' "$BASHRC"
-sed -i '/^\s*banner/d' "$BASHRC"
-
-# Guard the entire file with: if interactive shell
-sed -i '1i[[ $- != *i* ]] && return' "$BASHRC"
-
-# Optional: remove global MOTD, if causing problems
-rm -f /etc/update-motd.d/* /etc/motd /etc/profile.d/*-motd.sh 2>/dev/null || true
 
 # Backup existing key (if any)
 if [ -f /home/$USERNAME/.ssh/authorized_keys ]; then
@@ -213,15 +176,6 @@ fi
 
 # Overwrite with known-good key
 echo "🔑 Installing new authorized_keys from root"
-# Ensure .ssh directory exists and is not a file
-if [ -f /home/$USERNAME/.ssh ]; then
-  echo "⚠️  Found a file where .ssh directory should be. Removing it."
-  rm -f /home/$USERNAME/.ssh
-fi
-
-mkdir -p /home/$USERNAME/.ssh
-chmod 700 /home/$USERNAME/.ssh
-
 cp /root/.ssh/authorized_keys /home/$USERNAME/.ssh/
 chown -R $USERNAME:$USERNAME /home/$USERNAME/.ssh
 chmod 700 /home/$USERNAME/.ssh
@@ -267,6 +221,8 @@ else
   echo "ℹ️ No root SSH key found to delete."
 fi
 
+
+
   echo "🔁 Restarting SSH service..."
   systemctl restart ssh
 
@@ -274,8 +230,29 @@ else
   echo "⚠️  Conditions for safe root SSH lockout not met. Skipping SSH hardening."
 fi
 
-echo "♻️ Skipping purge of system packages to avoid dependency conflicts on Ubuntu Noble."
-echo "📦 Ensuring required packages are (re)installed..."
+echo "🧼 Purging existing versions of core tools (if any)..."
+
+apt remove --purge -y \
+  ansible \
+  python3 \
+  python3-pip \
+  git \
+  unzip \
+  curl \
+  sudo \
+  software-properties-common || true
+
+# Remove leftovers from manual installs
+rm -rf \
+  /usr/lib/python3* \
+  /usr/local/bin/pip* \
+  /usr/local/bin/python* \
+  /usr/local/bin/git* \
+  /usr/local/bin/ansible* \
+  /etc/ansible \
+  /usr/bin/unzip \
+  /usr/bin/curl \
+  /usr/bin/sudo || true
 
 echo "🔄 Updating package index..."
 apt update -y
@@ -311,15 +288,8 @@ done
 
 
 echo "📁 Preparing Ansible directory..."
-
-echo "🧨 Clearing old content from /opt/ansible..."
-rm -rf /opt/ansible/* || true  # Clear contents but keep the directory
-
-echo "🔧 Ensuring /opt/ansible exists with correct ownership..."
 mkdir -p /opt/ansible
 chown -R $USERNAME:$USERNAME /opt/ansible
-chmod -R 755 /opt/ansible
-
 
 echo "🧪 Validating SSH configuration..."
 sshd -t || { echo "❌ SSH config test failed! Not restarting."; exit 1; }
@@ -337,66 +307,11 @@ if ! git clone https://github.com/Somniac2103/ansible-vps.git ansible-tmp; then
   exit 1
 fi
 
-echo "🧽 Removing .git folder to prevent SCP issues..."
-rm -rf ansible-tmp/.git
-
 # ----------------------------
 # Step 7: Copy project to server
 # ----------------------------
-
-
 echo "📂 Copying project to server..."
-
-echo "🐞 DEBUGGING SCP ERROR..."
-
-# Print all critical variables
-echo "📍 Variables before SCP:"
-echo " - SCP Source Dir: ansible-tmp/"
-echo " - SCP Target: $USERNAME@$SERVER_IP:/opt/ansible/"
-echo " - SCP Command: scp -r ansible-tmp/* \"$USERNAME@$SERVER_IP:/opt/ansible/\""
-
-# List contents with sizes
-echo "📦 Listing ansible-tmp/*:"
-ls -lh ansible-tmp/ || echo "⚠️ Could not list local files"
-
-# Check total size (in case it's huge)
-echo "🧮 Total size of transfer:"
-du -sh ansible-tmp/
-
-# Test remote SSH output in non-interactive mode
-echo "🧪 Checking for unwanted remote shell output..."
-SSH_OUTPUT=$(ssh -T "$USERNAME@$SERVER_IP" 'true' 2>&1 || true)
-
-
-if [[ -n "$SSH_OUTPUT" ]]; then
-  echo "❌ Unexpected output on remote non-interactive shell:"
-  echo "-----------------------------"
-  echo "$SSH_OUTPUT"
-  echo "-----------------------------"
-  echo "💡 You may have echo/printf/banner commands in ~/.bashrc or ~/.profile on the server."
-  echo "🛠️ Suggest adding this to the top of ~/.bashrc: [[ \$- != *i* ]] && return"
-  exit 1
-else
-  echo "✅ Remote shell is clean — proceeding with SCP..."
-fi
-
-echo "🔄 Attempting SCP transfer with full debug..."
-
-# Manually run verbose SCP to catch any odd output or failure
-scp -v -r ansible-tmp/ "$USERNAME@$SERVER_IP:/opt/ansible/" 2>&1 | tee scp_debug.log
-
-# Check exit status of SCP
-if [[ ${PIPESTATUS[0]} -ne 0 ]]; then
-  echo "❌ SCP transfer failed. Debug output (last 20 lines):"
-  tail -n 20 scp_debug.log
-  echo "❗ This is often caused by unexpected shell output on the remote host — check ~/.bashrc, ~/.profile, or login scripts for echo/print statements."
-  exit 1
-else
-  echo "✅ SCP completed successfully."
-fi
-
-scp -r -o LogLevel=QUIET -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -o PreferredAuthentications=publickey -o PubkeyAuthentication=yes -o SendEnv=NONE ansible-tmp/ "$USERNAME@$SERVER_IP:/opt/ansible/"
-
+scp -r ansible-tmp/* "$USERNAME@$SERVER_IP:/opt/ansible/"
 
 # ----------------------------
 # Step 8: Patch inventory file

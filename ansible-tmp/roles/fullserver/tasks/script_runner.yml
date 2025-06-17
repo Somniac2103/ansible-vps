@@ -1,0 +1,30 @@
+- name: Ensure app script folder exists
+  file:
+    path: /opt/myapp/scripts
+    state: directory
+    mode: '0755'
+
+- name: Copy universal GitHub script runner
+  copy:
+    src: server/run-latest.sh
+    dest: /opt/myapp/scripts/run-latest.sh
+    mode: '0755'
+
+- name: Create daily GitHub backup runner
+  copy:
+    content: |
+      #!/bin/bash
+      export SCRIPT_NAME=backup.sh
+      /opt/myapp/scripts/run-latest.sh
+    dest: /etc/cron.daily/launch-backup
+    mode: '0755'
+
+- name: Create weekly GitHub update runner
+  copy:
+    content: |
+      #!/bin/bash
+      export SCRIPT_NAME=security-updates.sh
+      /opt/myapp/scripts/run-latest.sh
+    dest: /etc/cron.weekly/launch-updates
+    mode: '0755'
+

@@ -1,0 +1,19 @@
+- name: Ensure app directory exists
+  file:
+    path: /opt/myapp
+    state: directory
+    mode: '0755'
+    owner: jenkins
+    group: jenkins
+
+
+- name: Copy docker-compose file to server
+  copy:
+    src: apps/docker-compose.yml
+    dest: /opt/myapp/docker-compose.yml
+    mode: '0644'
+
+- name: Run docker-compose to deploy app
+  command: docker-compose up -d
+  args:
+    chdir: /opt/myapp

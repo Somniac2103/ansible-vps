@@ -69,32 +69,48 @@ fi
 # ----------------------------
 echo "🔗 Connecting as root@$SERVER_IP to create user and install packages..."
 
-sshpass -p "$ROOT_PASS" ssh -o StrictHostKeyChecking=no root@"$SERVER_IP" bash -s -- "$NEW_USER" "$NEW_PASS" <<'EOS'
+PUBKEY_CONTENT=$(cat "$KEY_PATH.pub")
+
+sshpass -p "$ROOT_PASS" ssh -o StrictHostKeyChecking=no root@"$SERVER_IP" bash -s -- "$NEW_USER" "$NEW_PASS" "$PUBKEY_CONTENT" <<'EOS'
 set -euo pipefail
 USERNAME="$1"
 USERPASS="$2"
+PUBKEY="$3"
 
-useradd -m -s /bin/bash "$USERNAME"
+# Create user with adduser (creates home dir by default)
+adduser --disabled-password --gecos "" "$USERNAME"
 echo "$USERNAME:$USERPASS" | chpasswd
 usermod -aG sudo "$USERNAME"
+
+# Configure sudo access
+echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME
+chmod 440 /etc/sudoers.d/$USERNAME
+
+# Setup SSH directory
 mkdir -p /home/$USERNAME/.ssh
+echo "$PUBKEY" > /home/$USERNAME/.ssh/authorized_keys
 chmod 700 /home/$USERNAME/.ssh
+chmod 600 /home/$USERNAME/.ssh/authorized_keys
 chown -R $USERNAME:$USERNAME /home/$USERNAME/.ssh
 EOS
-
-# ----------------------------
-# Push Public Key to New User
-# ----------------------------
-echo "$NEW_PASS" | sshpass ssh-copy-id -i "$KEY_PATH.pub" -o StrictHostKeyChecking=no "$NEW_USER@$SERVER_IP"
 
 # ----------------------------
 # SSH Hardening & Ansible Install
 # ----------------------------
 echo "🛡️ Hardening SSH and preparing Ansible on server..."
-ssh -i "$KEY_PATH" "$NEW_USER@$SERVER_IP" sudo bash -s -- <<'EOSH'
+ssh -i "$KEY_PATH" -o StrictHostKeyChecking=no -o BatchMode=yes "$NEW_USER@$SERVER_IP" sudo bash -s -- <<'EOSH'
 set -euo pipefail
 
-# Disable root login and password auth
+# Test SSH key login before locking down
+echo "🧪 Testing SSH key login BEFORE disabling password auth..."
+if ssh -i "$HOME/.ssh/${USERNAME}_id_ed25519" -o BatchMode=yes -o StrictHostKeyChecking=no "$USERNAME@localhost" 'echo "✅ SSH key login test successful."' ; then
+    echo "✅ SSH key works. Proceeding with SSH hardening."
+else
+    echo "❌ SSH key login failed. Aborting hardening to avoid lockout."
+    exit 1
+fi
+
+# Now harden SSH
 sed -i 's/^#\?PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
 sed -i 's/^#\?PasswordAuthentication.*/PasswordAuthentication no/' /etc/ssh/sshd_config
 passwd -l root
@@ -105,14 +121,17 @@ add-apt-repository --yes --update ppa:ansible/ansible
 apt install -y ansible
 
 # Restart SSH
-systemctl restart sshd
+systemctl restart ssh
+
+echo "⏳ Waiting 5 seconds for SSH to restart..."
+sleep 5
 EOSH
 
 # ----------------------------
 # Clone Git Repo to /tmp
 # ----------------------------
 echo "📁 Cloning repo to /tmp/bootstrap-phase2..."
-ssh -i "$KEY_PATH" "$NEW_USER@$SERVER_IP" bash -s -- "$GIT_REPO" <<'EOGIT'
+ssh -i "$KEY_PATH" -o StrictHostKeyChecking=no -o BatchMode=yes "$NEW_USER@$SERVER_IP" bash -s -- "$GIT_REPO" <<'EOGIT'
 REPO="$1"
 rm -rf /tmp/bootstrap-phase2
 mkdir -p /tmp/bootstrap-phase2
@@ -132,28 +151,27 @@ else
 fi
 
 echo "👮 Verifying Ansible installation..."
-ANSIBLE_VERSION=$(ssh -i "$KEY_PATH" "$NEW_USER@$SERVER_IP" ansible --version | head -n 1 || echo "❌ Ansible not found")
-echo "$ANSIBLE_VERSION"
+ANSIBLE_VERSION=$(ssh -i "$KEY_PATH" -o StrictHostKeyChecking=no -o BatchMode=yes "$NEW_USER@$SERVER_IP" 'ansible --version | head -n 1' 2>/dev/null || echo "❌ Ansible not found")
 
 echo "🔍 Checking root login is disabled..."
-if ssh -i "$KEY_PATH" "$NEW_USER@$SERVER_IP" 'grep -q "^PermitRootLogin no" /etc/ssh/sshd_config && echo "✅ Root login disabled."' ; then
-    ROOT_STATUS="✅ Root login disabled"
+if ssh -i "$KEY_PATH" -o BatchMode=yes -o ConnectTimeout=5 "$NEW_USER@$SERVER_IP" 'grep -q "^PermitRootLogin no" /etc/ssh/sshd_config'; then
+  ROOT_STATUS="✅ Root login disabled"
 else
-    ROOT_STATUS="❌ Root login still enabled"
+  ROOT_STATUS="❌ Root login still enabled"
 fi
 
 echo "🔍 Checking password login is disabled..."
-if ssh -i "$KEY_PATH" "$NEW_USER@$SERVER_IP" 'grep -q "^PasswordAuthentication no" /etc/ssh/sshd_config && echo "✅ Password login disabled."' ; then
-    PASSWD_STATUS="✅ Password login disabled"
+if ssh -i "$KEY_PATH" -o BatchMode=yes "$NEW_USER@$SERVER_IP" 'grep -q "^PasswordAuthentication no" /etc/ssh/sshd_config'; then
+  PASSWD_STATUS="✅ Password login disabled"
 else
-    PASSWD_STATUS="❌ Password login still enabled"
+  PASSWD_STATUS="❌ Password login still enabled"
 fi
 
 echo "📦 Checking Git repo exists in /tmp..."
-if ssh -i "$KEY_PATH" "$NEW_USER@$SERVER_IP" '[ -d /tmp/bootstrap-phase2 ] && echo "✅ Repo exists."' ; then
-    REPO_STATUS="✅ Repo cloned to /tmp/bootstrap-phase2"
+if ssh -i "$KEY_PATH" -o BatchMode=yes "$NEW_USER@$SERVER_IP" '[ -d /tmp/bootstrap-phase2 ]'; then
+  REPO_STATUS="✅ Repo cloned to /tmp/bootstrap-phase2"
 else
-    REPO_STATUS="❌ Repo not found at /tmp/bootstrap-phase2"
+  REPO_STATUS="❌ Repo not found at /tmp/bootstrap-phase2"
 fi
 
 # ----------------------------
